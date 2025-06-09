@@ -335,18 +335,25 @@ Cache has been completely cleared."""
         finally:
             await self.stop()
     
-    async def start_webhook(self, webhook_url: str, port: int = 8443):
+    async def start_webhook(self, webhook_url: str, port: int = 8080):
         """Start the bot with webhook"""
         if not self.app:
             await self.initialize()
         
-        logger.info(f"Starting bot with webhook: {webhook_url}")
+        logger.info(f"Starting bot with webhook: {webhook_url} on port {port}")
         await self.app.initialize()
         await self.app.start()
+        
+        # Set webhook URL with Telegram
+        await self.app.bot.set_webhook(webhook_url)
+        logger.info(f"Webhook set successfully: {webhook_url}")
+        
+        # Start webhook server
         await self.app.updater.start_webhook(
             listen="0.0.0.0",
-            port=port,
-            webhook_url=webhook_url
+            port=int(port),
+            webhook_url=webhook_url,
+            url_path="/webhook"
         )
         
         try:
