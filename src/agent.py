@@ -6,8 +6,8 @@ Contains functions to create and configure the ReAct agent with all tools.
 import dspy
 from dspy import Tool
 
-from .signatures import DSPyRealEstateAgent
-from .tools import (
+from signatures import DSPyRealEstateAgent
+from tools import (
     web_search,
     get_current_time,
     get_property_tax_data,

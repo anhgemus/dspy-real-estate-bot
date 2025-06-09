@@ -2,8 +2,8 @@
 Main entry point for DSPy real estate property valuation agent.
 """
 
-from .config import setup_dspy
-from .agent import create_real_estate_agent, display_results
+from config import setup_dspy
+from agent import create_real_estate_agent, display_results
 
 
 def main():

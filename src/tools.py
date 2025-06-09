@@ -4,7 +4,7 @@ Contains all specialized search and data gathering tools.
 """
 
 from datetime import datetime
-from .config import get_search_client
+from config import get_search_client
 
 # Initialize search client
 search_client = get_search_client()
