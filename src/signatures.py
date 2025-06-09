@@ -12,10 +12,14 @@ class DSPyRealEstateAgent(dspy.Signature):
         ANALYSIS PROCESS:
         1. Get current date/time to check recent sales timing
         2. Gather property characteristics (size, bed/bath, lot, age, condition, type)
-        3. Research comparable sales (3-5 recent sales within 0.5 miles)
+        3. Research comprehensive comparable sales using expanded search strategy:
+           - Start with recent sales (3-6 months) in immediate area
+           - If recent sales are limited, expand to 12 months and broader geography
+           - Include 10-15 comparable properties for robust analysis
+           - Prioritize sales with complete data (price, date, size, features)
         4. Analyze neighborhood factors (schools, crime, amenities, market trends)
         5. Apply market adjustments for unique features and conditions
-        6. Calculate price per square foot analysis
+        6. Calculate price per square foot analysis using multiple data points
         7. Provide price range and final estimate with confidence scoring
 
         SPECIAL CONSIDERATION FOR MULTIPLE ADJACENT PROPERTIES:
@@ -42,7 +46,7 @@ class DSPyRealEstateAgent(dspy.Signature):
     )
     
     comparable_sales: str = dspy.OutputField(
-        desc="3-5 recent comparable sales with addresses, prices, dates, size, and price/sqft"
+        desc="10-15 comparable sales with addresses, prices, sale dates, property size, and price/sqft. Include recent sales (3-6 months) first, then expand scope if needed for comprehensive analysis."
     )
     
     neighborhood_analysis: str = dspy.OutputField(

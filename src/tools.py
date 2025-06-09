@@ -82,19 +82,59 @@ def get_crime_data(address: str) -> str:
 
 
 def get_comparable_sales(address: str) -> str:
-    """Get recent comparable sales data with multiple search strategies"""
+    """Get comprehensive comparable sales data with expanded search for more properties"""
     print(f"🏠 Getting comparable sales for: {address}")
+    
+    # Extract location components for targeted searches
+    location_parts = address.split(',')
+    street_area = location_parts[0].strip() if location_parts else address
+    suburb_city = location_parts[1].strip() if len(location_parts) > 1 else ""
+    state_region = location_parts[2].strip() if len(location_parts) > 2 else ""
+    
+    # Comprehensive search queries to capture more properties
     queries = [
+        # Recent sales - primary searches
         f"{address} recent sales comparable properties",
         f"{address} recently sold homes similar properties",
         f"{address} comps comparable sales nearby",
         f"{address} sold properties last 6 months",
+        f"{address} sold properties last 12 months",
+        
+        # Neighborhood-based searches
         f"homes sold near {address} price per square foot",
+        f"{suburb_city} recent home sales similar properties",
+        f"{suburb_city} property sales comparable to {street_area}",
+        f"properties sold {suburb_city} {state_region} recent",
+        f"{suburb_city} area home sales last year",
+        
+        # Broader geographic searches
+        f"similar homes sold {state_region} near {suburb_city}",
+        f"{state_region} property sales comparable to {address}",
+        f"home sales {suburb_city} {state_region} market data",
+        
+        # Development and land value searches
         f"{address} land assembly sales multiple lots",
-        f"{address} development site sales large lots"
+        f"{address} development site sales large lots",
+        f"{suburb_city} development property sales",
+        f"land value sales {suburb_city} {state_region}",
+        
+        # Property type specific searches
+        f"residential sales near {address} comparable",
+        f"house sales {suburb_city} similar to {street_area}",
+        f"property transactions {suburb_city} recent sales data"
     ]
+    
     all_results = []
-    for query in queries:
+    print(f"  🔍 Running {len(queries)} comprehensive searches...")
+    
+    for i, query in enumerate(queries, 1):
         response = search_client.search(query)
-        all_results.extend([r["content"] for r in response["results"][:2]])
+        # Increased from 2 to 4 results per query for more comprehensive data
+        results = [r["content"] for r in response["results"][:4]]
+        all_results.extend(results)
+        
+        if i % 5 == 0:  # Progress indicator
+            print(f"    ✓ Completed {i}/{len(queries)} searches...")
+    
+    print(f"  ✅ Collected {len(all_results)} comparable sales data points")
     return "\n".join(all_results)
