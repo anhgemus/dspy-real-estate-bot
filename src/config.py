@@ -47,3 +47,15 @@ def get_telegram_config():
         'webhook_port': int(os.getenv('TELEGRAM_WEBHOOK_PORT', '8443')),
         'allowed_users': os.getenv('TELEGRAM_ALLOWED_USERS', '').split(',') if os.getenv('TELEGRAM_ALLOWED_USERS') else []
     }
+
+
+def get_cache_config():
+    """Get cache configuration"""
+    return {
+        'enable_cache': os.getenv('ENABLE_CACHE', 'true').lower() == 'true',
+        'memory_max_items': int(os.getenv('CACHE_MEMORY_MAX_ITEMS', '100')),
+        'memory_ttl_hours': int(os.getenv('CACHE_MEMORY_TTL_HOURS', '24')),
+        'disk_cache_dir': os.getenv('CACHE_DISK_DIR', 'cache'),
+        'disk_ttl_days': int(os.getenv('CACHE_DISK_TTL_DAYS', '7')),
+        'enable_disk_cache': os.getenv('CACHE_ENABLE_DISK', 'true').lower() == 'true'
+    }

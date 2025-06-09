@@ -63,6 +63,8 @@ class RealEstateBot:
         self.app.add_handler(CommandHandler("help", self.help_command))
         self.app.add_handler(CommandHandler("stats", self.stats_command))
         self.app.add_handler(CommandHandler("health", self.health_command))
+        self.app.add_handler(CommandHandler("cache", self.cache_command))
+        self.app.add_handler(CommandHandler("clearcache", self.clear_cache_command))
         
         # Message handler for property queries
         self.app.add_handler(MessageHandler(
@@ -76,6 +78,8 @@ class RealEstateBot:
             BotCommand("help", "Show help message"),
             BotCommand("stats", "Show bot statistics"),
             BotCommand("health", "Check bot health"),
+            BotCommand("cache", "Show cache information"),
+            BotCommand("clearcache", "Clear all cached data"),
         ]
         await self.app.bot.set_my_commands(commands)
     
@@ -117,13 +121,27 @@ Type /help for more information!"""
         uptime_str = str(uptime).split('.')[0]  # Remove microseconds
         
         agent_healthy = await self.agent.health_check()
+        cache_stats = self.agent.get_cache_stats()
         
         stats_message = f"""📊 *Bot Statistics*
 
 ⏰ *Uptime:* {uptime_str}
 📈 *Requests Processed:* {self.requests_processed}
 🔧 *Agent Status:* {'✅ Healthy' if agent_healthy else '❌ Unhealthy'}
-🕒 *Last Updated:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"""
+
+💾 *Cache Performance:*"""
+
+        if cache_stats.get('cache_enabled', False):
+            cache_info = cache_stats.get('statistics', {})
+            stats_message += f"""
+• Hit Rate: {cache_info.get('hit_rate', 0):.1%}
+• Total Requests: {cache_info.get('total_requests', 0)}
+• Memory Cache: {cache_stats['memory_cache']['size']}/{cache_stats['memory_cache']['max_size']}
+• Disk Cache: {cache_stats['disk_cache']['size']} files ({cache_stats['disk_cache']['size_mb']} MB)"""
+        else:
+            stats_message += "\n• Cache: Disabled"
+
+        stats_message += f"\n\n🕒 *Last Updated:* {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
 
         await update.message.reply_text(
             stats_message,
@@ -138,6 +156,62 @@ Type /help for more information!"""
             await update.message.reply_text("✅ Bot is healthy and ready!")
         else:
             await update.message.reply_text("❌ Bot is experiencing issues. Please try again later.")
+    
+    async def cache_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /cache command"""
+        cache_stats = self.agent.get_cache_stats()
+        
+        if not cache_stats.get('cache_enabled', False):
+            await update.message.reply_text("💾 Cache is currently disabled.")
+            return
+        
+        cache_info = cache_stats.get('statistics', {})
+        memory_cache = cache_stats.get('memory_cache', {})
+        disk_cache = cache_stats.get('disk_cache', {})
+        
+        cache_message = f"""💾 *Cache Information*
+
+📊 *Performance:*
+• Hit Rate: {cache_info.get('hit_rate', 0):.1%}
+• Total Requests: {cache_info.get('total_requests', 0)}
+• Cache Hits: {cache_info.get('hits', 0)}
+• Cache Misses: {cache_info.get('misses', 0)}
+
+🧠 *Memory Cache:*
+• Entries: {memory_cache.get('size', 0)}/{memory_cache.get('max_size', 0)}
+• TTL: {memory_cache.get('ttl_hours', 0)} hours
+
+💿 *Disk Cache:*
+• Files: {disk_cache.get('size', 0)}
+• Size: {disk_cache.get('size_mb', 0)} MB
+• TTL: {disk_cache.get('ttl_days', 0)} days
+
+⏱️ *Uptime:* {cache_info.get('uptime', 'Unknown')}"""
+
+        await update.message.reply_text(
+            cache_message,
+            parse_mode="Markdown"
+        )
+    
+    async def clear_cache_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /clearcache command"""
+        result = self.agent.clear_cache()
+        
+        if result.get('cleared', False):
+            message = f"""🗑️ *Cache Cleared*
+
+Removed:
+• Memory entries: {result.get('memory_entries', 0)}
+• Disk files: {result.get('disk_entries', 0)}
+
+Cache has been completely cleared."""
+        else:
+            message = f"❌ Cache clear failed: {result.get('reason', 'Unknown error')}"
+        
+        await update.message.reply_text(
+            message,
+            parse_mode="Markdown"
+        )
     
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle incoming text messages"""
