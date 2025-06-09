@@ -1,9 +1,11 @@
 """
 Message parsing utilities for Telegram bot.
-Extracts addresses and property queries from user messages.
+Extracts addresses and property queries from user messages using LLM.
 """
 
 import re
+import json
+import dspy
 from typing import List, Optional, Tuple
 from pydantic import BaseModel
 
@@ -15,29 +17,77 @@ class PropertyQuery(BaseModel):
     raw_message: str
 
 
+class AddressParsingSignature(dspy.Signature):
+    """Parse user message to extract property addresses and determine query type."""
+    
+    user_message = dspy.InputField(desc="User's message about property valuation")
+    addresses = dspy.OutputField(desc="List of complete property addresses found in the message, as JSON array of strings. Include full address with street, suburb/city, state/region, and postcode/zipcode when available.")
+    query_type = dspy.OutputField(desc="Type of query: 'single' for one property, 'multiple' for multiple properties being combined/sold together, 'compare' for comparing different properties")
+    confidence = dspy.OutputField(desc="Confidence score (0.0-1.0) in the parsing accuracy")
+
+
 class MessageParser:
-    """Parser for extracting property information from user messages"""
+    """LLM-powered parser for extracting property information from user messages"""
     
-    # Address pattern for various international formats
-    ADDRESS_PATTERNS = [
-        # Australian format: "123 Street Name, Suburb, STATE 1234"
-        r'(\d+[A-Z]?\s+[^,]+,\s*[^,]+,\s*[A-Z]{2,3}\s*\d{4}(?:\s*[A-Za-z]+)?)',
-        # US format: "123 Street Name, City, ST 12345"
-        r'(\d+[A-Z]?\s+[^,]+,\s*[^,]+,\s*[A-Z]{2}\s*\d{5})',
-        # UK format: "123 Street Name, City, Postcode"
-        r'(\d+[A-Z]?\s+[^,]+,\s*[^,]+,\s*[A-Z]{1,2}\d{1,2}[A-Z]?\s*\d[A-Z]{2})',
-        # Simple format: "123 Street Name"
-        r'(\d+[A-Z]?\s+[A-Za-z\s]+(?:Street|St|Avenue|Ave|Road|Rd|Drive|Dr|Lane|Ln|Court|Ct|Place|Pl))',
-    ]
-    
-    # Query type indicators
-    COMPARISON_KEYWORDS = ['compare', 'vs', 'versus', 'difference', 'both', 'together']
-    MULTIPLE_KEYWORDS = ['and', '&', 'plus', 'combined', 'together']
+    def __init__(self):
+        self.address_parser = dspy.Predict(AddressParsingSignature)
     
     def parse_message(self, message: str) -> PropertyQuery:
-        """Parse user message and extract property query information"""
-        addresses = self._extract_addresses(message)
-        query_type = self._determine_query_type(message, addresses)
+        """Parse user message and extract property query information using LLM"""
+        try:
+            # Use LLM to parse the message
+            result = self.address_parser(user_message=message)
+            
+            # Parse the addresses JSON
+            try:
+                addresses = json.loads(result.addresses)
+                if not isinstance(addresses, list):
+                    addresses = [str(addresses)] if addresses else []
+            except (json.JSONDecodeError, TypeError):
+                # Fallback: treat as single address if JSON parsing fails
+                addresses = [result.addresses.strip()] if result.addresses.strip() else []
+            
+            # Validate and clean addresses
+            addresses = [addr.strip() for addr in addresses if addr and addr.strip()]
+            
+            # Ensure query type is valid
+            query_type = result.query_type.lower()
+            if query_type not in ['single', 'multiple', 'compare']:
+                query_type = 'single' if len(addresses) <= 1 else 'multiple'
+            
+            return PropertyQuery(
+                addresses=addresses,
+                query_type=query_type,
+                raw_message=message
+            )
+            
+        except Exception as e:
+            # Fallback to simple regex-based parsing if LLM fails
+            return self._fallback_parse(message)
+    
+    def _fallback_parse(self, message: str) -> PropertyQuery:
+        """Fallback parsing using simple heuristics when LLM fails"""
+        # Simple regex patterns for fallback
+        basic_patterns = [
+            r'(\d+[A-Z]?\s+[^,\n]+(?:,\s*[^,\n]+)*)',  # Basic address pattern
+        ]
+        
+        addresses = []
+        for pattern in basic_patterns:
+            matches = re.findall(pattern, message, re.IGNORECASE)
+            for match in matches:
+                addr = match.strip()
+                if addr and len(addr) > 5 and addr not in addresses:
+                    addresses.append(addr)
+        
+        # Simple query type determination
+        message_lower = message.lower()
+        if any(word in message_lower for word in ['compare', 'vs', 'versus']):
+            query_type = 'compare'
+        elif len(addresses) > 1 or any(word in message_lower for word in ['both', 'multiple', 'together']):
+            query_type = 'multiple'
+        else:
+            query_type = 'single'
         
         return PropertyQuery(
             addresses=addresses,
@@ -45,34 +95,6 @@ class MessageParser:
             raw_message=message
         )
     
-    def _extract_addresses(self, message: str) -> List[str]:
-        """Extract addresses from message using regex patterns"""
-        addresses = []
-        
-        for pattern in self.ADDRESS_PATTERNS:
-            matches = re.findall(pattern, message, re.IGNORECASE)
-            for match in matches:
-                # Clean up the address
-                cleaned_address = match.strip()
-                if cleaned_address not in addresses:
-                    addresses.append(cleaned_address)
-        
-        return addresses
-    
-    def _determine_query_type(self, message: str, addresses: List[str]) -> str:
-        """Determine the type of query based on message content and addresses"""
-        message_lower = message.lower()
-        
-        # Check for comparison keywords
-        if any(keyword in message_lower for keyword in self.COMPARISON_KEYWORDS):
-            return 'compare'
-        
-        # Check for multiple property keywords
-        if (len(addresses) > 1 or 
-            any(keyword in message_lower for keyword in self.MULTIPLE_KEYWORDS)):
-            return 'multiple'
-        
-        return 'single'
     
     def validate_addresses(self, addresses: List[str]) -> Tuple[List[str], List[str]]:
         """Validate addresses and return valid/invalid lists"""
@@ -89,7 +111,7 @@ class MessageParser:
     
     def _is_valid_address(self, address: str) -> bool:
         """Basic address validation"""
-        # Must have at least a number and street name
+        # Must have at least a number and reasonable content
         if not re.search(r'\d+', address):
             return False
         
@@ -97,7 +119,16 @@ class MessageParser:
         if len(address.strip()) < 5:
             return False
         
-        return True
+        # Should contain typical address components
+        address_lower = address.lower()
+        has_street_indicator = any(indicator in address_lower for indicator in 
+                                 ['street', 'st', 'avenue', 'ave', 'road', 'rd', 'drive', 'dr', 
+                                  'lane', 'ln', 'court', 'ct', 'place', 'pl', 'crescent', 'cres'])
+        
+        # Either has street indicator or has geographic pattern (number + name + location)
+        has_geographic_pattern = len(address.split(',')) >= 2 or len(address.split()) >= 3
+        
+        return has_street_indicator or has_geographic_pattern
     
     def format_query_summary(self, query: PropertyQuery) -> str:
         """Create a summary of the parsed query for user confirmation"""
