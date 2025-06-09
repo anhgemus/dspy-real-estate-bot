@@ -1,3 +1,5 @@
 dspy
 python-dotenv
 tavily-python
+python-telegram-bot>=20.0
+pydantic>=2.0

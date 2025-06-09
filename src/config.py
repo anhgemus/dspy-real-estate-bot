@@ -37,3 +37,13 @@ def setup_dspy():
 def get_search_client():
     """Initialize and return Tavily search client"""
     return TavilyClient(api_key=os.getenv('TAVILY_API_KEY'))
+
+
+def get_telegram_config():
+    """Get Telegram bot configuration"""
+    return {
+        'token': os.getenv('TELEGRAM_BOT_TOKEN'),
+        'webhook_url': os.getenv('TELEGRAM_WEBHOOK_URL'),
+        'webhook_port': int(os.getenv('TELEGRAM_WEBHOOK_PORT', '8443')),
+        'allowed_users': os.getenv('TELEGRAM_ALLOWED_USERS', '').split(',') if os.getenv('TELEGRAM_ALLOWED_USERS') else []
+    }
