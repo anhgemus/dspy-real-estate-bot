@@ -4,6 +4,7 @@ Formats property valuation results for user-friendly display.
 """
 
 from typing import Any, Dict
+from datetime import datetime
 from pydantic import BaseModel
 
 
@@ -151,6 +152,65 @@ Just send me an address like:
 💡 *Tip:* Include full addresses with suburb/city and postal code for best results."""
 
         return FormattedResponse(text=response)
+    
+    def format_market_intelligence(self, prediction, address: str) -> FormattedResponse:
+        """Format market intelligence analysis results"""
+        text = f"📊 **Market Intelligence Report**\n"
+        text += f"📍 **Property:** `{address}`\n\n"
+        
+        # Price History
+        text += f"📈 **Price History & Trends**\n"
+        text += f"{self._truncate_text(prediction.price_history, 300)}\n\n"
+        
+        # Market Trends
+        text += f"📊 **Current Market Conditions**\n"
+        text += f"{self._truncate_text(prediction.market_trends, 300)}\n\n"
+        
+        # Market Velocity
+        text += f"⚡ **Market Velocity**\n"
+        text += f"{self._truncate_text(prediction.market_velocity, 250)}\n\n"
+        
+        # Seasonal Analysis
+        text += f"🌟 **Seasonal Analysis**\n"
+        text += f"{self._truncate_text(prediction.seasonal_analysis, 250)}\n\n"
+        
+        # Supply & Demand
+        text += f"⚖️ **Supply & Demand**\n"
+        text += f"{self._truncate_text(prediction.supply_demand, 250)}\n\n"
+        
+        # Market Predictions
+        text += f"🔮 **Market Predictions**\n"
+        text += f"{self._truncate_text(prediction.market_predictions, 300)}\n\n"
+        
+        # Investment Insights
+        text += f"💡 **Investment Insights**\n"
+        text += f"{self._truncate_text(prediction.investment_insights, 300)}\n\n"
+        
+        # Confidence
+        confidence_emoji = "🟢" if prediction.confidence > 0.7 else "🟡" if prediction.confidence > 0.4 else "🔴"
+        text += f"{confidence_emoji} **Confidence:** {prediction.confidence:.1%}\n\n"
+        
+        text += f"📅 *Generated: {datetime.now().strftime('%Y-%m-%d %H:%M')}*"
+        
+        return FormattedResponse(text=text, parse_mode="Markdown")
+    
+    def _truncate_text(self, text: str, max_length: int) -> str:
+        """Truncate text to maximum length while preserving meaning"""
+        if len(text) <= max_length:
+            return text
+        
+        # Find last complete sentence within limit
+        truncated = text[:max_length]
+        last_period = truncated.rfind('.')
+        last_exclaim = truncated.rfind('!')
+        last_question = truncated.rfind('?')
+        
+        last_sentence_end = max(last_period, last_exclaim, last_question)
+        
+        if last_sentence_end > max_length * 0.7:  # If we found a good break point
+            return text[:last_sentence_end + 1]
+        else:
+            return text[:max_length - 3] + "..."
     
     def _format_property_details(self, details: str) -> str:
         """Format property details section"""

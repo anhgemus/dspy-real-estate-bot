@@ -138,3 +138,118 @@ def get_comparable_sales(address: str) -> str:
     
     print(f"  ✅ Collected {len(all_results)} comparable sales data points")
     return "\n".join(all_results)
+
+
+def get_price_history_analysis(address: str) -> str:
+    """Get comprehensive price history and market trends for the property and area"""
+    print(f"📈 Analyzing price history and market trends for: {address}")
+    
+    # Extract location components for targeted searches
+    location_parts = address.split(',')
+    street_area = location_parts[0].strip() if location_parts else address
+    suburb_city = location_parts[1].strip() if len(location_parts) > 1 else ""
+    state_region = location_parts[2].strip() if len(location_parts) > 2 else ""
+    
+    # Comprehensive market intelligence queries
+    queries = [
+        # Property-specific price history
+        f"{address} sale history price changes over time",
+        f"{address} property price history previous sales",
+        f"{address} historical sale prices trends",
+        
+        # Area price trends
+        f"{suburb_city} {state_region} property price trends last 5 years",
+        f"{suburb_city} median house prices historical data",
+        f"{suburb_city} property market trends price growth",
+        f"{suburb_city} real estate price appreciation rates",
+        
+        # Market velocity and timing
+        f"{suburb_city} average days on market properties",
+        f"{suburb_city} how long properties take to sell",
+        f"{suburb_city} property sale timeframes market velocity",
+        
+        # Seasonal trends
+        f"{suburb_city} {state_region} seasonal property market trends",
+        f"{suburb_city} best time to sell buy property seasonal data",
+        f"{suburb_city} property prices by season monthly trends",
+        
+        # Market predictions and outlook
+        f"{suburb_city} {state_region} property market forecast 2024 2025",
+        f"{suburb_city} future property price predictions",
+        f"{suburb_city} real estate market outlook growth potential",
+        
+        # Economic indicators
+        f"{suburb_city} {state_region} population growth property demand",
+        f"{suburb_city} economic growth employment property market",
+        f"{suburb_city} infrastructure development property values impact"
+    ]
+    
+    all_results = []
+    print(f"  🔍 Running {len(queries)} market intelligence searches...")
+    
+    for i, query in enumerate(queries, 1):
+        response = search_client.search(query)
+        results = [r["content"] for r in response["results"][:3]]  # 3 results per query for detailed analysis
+        all_results.extend(results)
+        
+        if i % 4 == 0:  # Progress indicator
+            print(f"    ✓ Completed {i}/{len(queries)} market analysis searches...")
+    
+    print(f"  ✅ Collected {len(all_results)} market intelligence data points")
+    return "\n".join(all_results)
+
+
+def get_market_velocity_analysis(address: str) -> str:
+    """Get market velocity data - how quickly properties sell in the area"""
+    print(f"⚡ Analyzing market velocity for: {address}")
+    
+    location_parts = address.split(',')
+    suburb_city = location_parts[1].strip() if len(location_parts) > 1 else address
+    state_region = location_parts[2].strip() if len(location_parts) > 2 else ""
+    
+    queries = [
+        f"{suburb_city} average days on market 2024",
+        f"{suburb_city} properties selling quickly fast sales",
+        f"{suburb_city} time to sell property statistics",
+        f"{suburb_city} market activity property turnover rates",
+        f"{suburb_city} {state_region} buyer demand property competition",
+        f"{suburb_city} auction clearance rates success rates",
+        f"{suburb_city} properties selling above below asking price",
+        f"{suburb_city} hot property market fast selling homes"
+    ]
+    
+    all_results = []
+    for query in queries:
+        response = search_client.search(query)
+        all_results.extend([r["content"] for r in response["results"][:2]])
+    
+    print(f"  ✅ Collected market velocity data")
+    return "\n".join(all_results)
+
+
+def get_market_competition_analysis(address: str) -> str:
+    """Analyze current market competition and supply/demand dynamics"""
+    print(f"🎯 Analyzing market competition for: {address}")
+    
+    location_parts = address.split(',')
+    suburb_city = location_parts[1].strip() if len(location_parts) > 1 else address
+    state_region = location_parts[2].strip() if len(location_parts) > 2 else ""
+    
+    queries = [
+        f"{suburb_city} properties for sale current listings",
+        f"{suburb_city} property supply demand analysis",
+        f"{suburb_city} how many homes for sale market inventory",
+        f"{suburb_city} buyer competition multiple offers",
+        f"{suburb_city} property stock levels housing supply",
+        f"{suburb_city} {state_region} seller market buyer market conditions",
+        f"{suburb_city} property listing price vs sale price analysis",
+        f"{suburb_city} market conditions tight supply high demand"
+    ]
+    
+    all_results = []
+    for query in queries:
+        response = search_client.search(query)
+        all_results.extend([r["content"] for r in response["results"][:2]])
+    
+    print(f"  ✅ Collected market competition data")
+    return "\n".join(all_results)

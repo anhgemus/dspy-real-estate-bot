@@ -16,6 +16,7 @@ from config import get_telegram_config
 from message_parser import MessageParser, PropertyQuery
 from response_formatter import ResponseFormatter
 from async_agent import AsyncRealEstateAgent
+from market_agent import create_market_intelligence_agent
 
 
 # Configure logging
@@ -34,6 +35,7 @@ class RealEstateBot:
         self.parser = MessageParser()
         self.formatter = ResponseFormatter()
         self.agent = AsyncRealEstateAgent()
+        self.market_agent = None  # Will be initialized when needed
         self.app: Optional[Application] = None
         
         # Statistics
@@ -65,6 +67,7 @@ class RealEstateBot:
         self.app.add_handler(CommandHandler("health", self.health_command))
         self.app.add_handler(CommandHandler("cache", self.cache_command))
         self.app.add_handler(CommandHandler("clearcache", self.clear_cache_command))
+        self.app.add_handler(CommandHandler("market", self.market_command))
         
         # Message handler for property queries
         self.app.add_handler(MessageHandler(
@@ -80,6 +83,7 @@ class RealEstateBot:
             BotCommand("health", "Check bot health"),
             BotCommand("cache", "Show cache information"),
             BotCommand("clearcache", "Clear all cached data"),
+            BotCommand("market", "Deep market intelligence analysis"),
         ]
         await self.app.bot.set_my_commands(commands)
     
@@ -212,6 +216,119 @@ Cache has been completely cleared."""
             message,
             parse_mode="Markdown"
         )
+    
+    async def market_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle /market command for deep market intelligence analysis"""
+        try:
+            # Check if user is allowed (if restrictions are set)
+            if self.config['allowed_users'] and str(update.effective_user.id) not in self.config['allowed_users']:
+                await update.message.reply_text(
+                    "❌ Sorry, you're not authorized to use this bot."
+                )
+                return
+            
+            # Extract address from command arguments
+            command_args = ' '.join(context.args) if context.args else ""
+            
+            if not command_args:
+                await update.message.reply_text(
+                    "📊 **Market Intelligence Analysis**\n\n"
+                    "Usage: `/market [address]`\n\n"
+                    "Example: `/market 289A Gaffney Street, Pascoe Vale, VIC 3044`\n\n"
+                    "This provides comprehensive market analysis including:\n"
+                    "• Price history and trends\n"
+                    "• Market velocity and timing\n"
+                    "• Seasonal patterns\n"
+                    "• Supply/demand analysis\n"
+                    "• Market predictions\n"
+                    "• Investment insights",
+                    parse_mode="Markdown"
+                )
+                return
+            
+            # Parse the address
+            query = self.parser.parse_message(command_args)
+            
+            if not query.addresses:
+                await update.message.reply_text(
+                    "❌ I couldn't find a valid address in your message.\n\n"
+                    "Please provide a complete address like:\n"
+                    "• 123 Main Street, City, STATE 1234\n"
+                    "• 456 Oak Avenue, Suburb\n\n"
+                    "Example: `/market 289A Gaffney Street, Pascoe Vale, VIC 3044`"
+                )
+                return
+            
+            address = query.addresses[0]  # Use first address for market analysis
+            
+            # Send processing message
+            processing_message = await update.message.reply_text(
+                f"📊 **Market Intelligence Analysis**\n\n"
+                f"🔍 Analyzing market data for:\n`{address}`\n\n"
+                f"⏳ This comprehensive analysis includes:\n"
+                f"• Price history research\n"
+                f"• Market trends analysis\n"
+                f"• Competition assessment\n"
+                f"• Predictions & insights\n\n"
+                f"⏱️ Please wait 2-3 minutes...",
+                parse_mode="Markdown"
+            )
+            
+            # Show typing indicator
+            await context.bot.send_chat_action(
+                chat_id=update.effective_chat.id,
+                action=ChatAction.TYPING
+            )
+            
+            # Initialize market agent if needed
+            if not self.market_agent:
+                self.market_agent = create_market_intelligence_agent()
+            
+            # Run market analysis
+            question = f"Provide comprehensive market intelligence analysis for {address}"
+            
+            # Run in thread pool to avoid blocking
+            loop = asyncio.get_event_loop()
+            from concurrent.futures import ThreadPoolExecutor
+            executor = ThreadPoolExecutor(max_workers=1)
+            
+            prediction = await loop.run_in_executor(
+                executor,
+                lambda: self.market_agent(question=question)
+            )
+            
+            # Format the response
+            response = self.formatter.format_market_intelligence(prediction, address)
+            
+            # Delete processing message and send results
+            await processing_message.delete()
+            await update.message.reply_text(
+                response.text,
+                parse_mode=response.parse_mode
+            )
+            
+            # Update statistics
+            self.requests_processed += 1
+            
+            logger.info(f"Market intelligence analysis completed for: {address}")
+            
+        except Exception as e:
+            logger.error(f"Error in market command: {e}")
+            
+            # Delete processing message if it exists
+            try:
+                await processing_message.delete()
+            except:
+                pass
+            
+            # Send error response
+            await update.message.reply_text(
+                f"❌ **Market Analysis Error**\n\n"
+                f"Sorry, I couldn't complete the market analysis.\n"
+                f"Please try again later or contact support.\n\n"
+                f"Error: {str(e)[:100]}...",
+                parse_mode="Markdown"
+            )
     
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle incoming text messages"""
